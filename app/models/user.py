@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Boolean
 from sqlalchemy.sql.expression import text
-from sqlalchemy.orm import relationship, Mapped
-from typing import List
+
 
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID

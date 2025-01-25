@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
-    # ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    # ALGORITHM: str
-    # SECRET_KEY: str = secrets.token_urlsafe(32)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    ALGORITHM: str
+    SECRET_KEY: str = secrets.token_urlsafe(32)
 
 
 

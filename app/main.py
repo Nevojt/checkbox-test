@@ -17,7 +17,7 @@ async def init_db():
         except Exception as e:
             print(f"Error during table creation: {e}")
 
-app = FastAPI( title=settings.PROJECT_NAME,
+app = FastAPI(title=settings.PROJECT_NAME,
     docs_url="/swagger/docs",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
