@@ -1,10 +1,13 @@
-from typing import Any
+from datetime import datetime
+from typing import Any, Optional, List
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from app.schemas import  products
 from app.api.deps import SessionDep, CurrentUser
 from app.models.products import Receipt, Products
 from app.core import crud
+
+from sqlalchemy.future import select
 
 
 router = APIRouter()
@@ -61,8 +64,47 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
            created_at=receipt.created_at
        )
 
-
-    except Exception as e:
+    except Exception as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return response
 
+@router.get("/receipts/", response_model=List[products.ReceiptSummary])
+async def get_all_receipts(*, session: SessionDep,
+                           current_user: CurrentUser,
+                           offset: int = 0,
+                           limit: int = 10,
+                           min_total: Optional[float] = Query(None),
+                           max_total: Optional[float] = Query(None),
+                           payment_type: Optional[str] = Query(None),
+                           start_date: Optional[datetime] = Query(None),
+                           end_date: Optional[datetime] = Query(None)
+                           ) -> Any:
+    try:
+        query = select(Receipt).where(Receipt.user_id == current_user.id)
+
+        if min_total is not None:
+            query = query.where(Receipt.total >= min_total)
+        if max_total is not None:
+            query = query.where(Receipt.total <= max_total)
+        if payment_type is not None:
+            query = query.where(Receipt.payment["type"].astext == payment_type)
+        if start_date is not None:
+            query = query.where(Receipt.created_at >= start_date)
+        if end_date is not None:
+            query = query.where(Receipt.created_at <= end_date)
+
+        query = query.offset(offset).limit(limit)
+        result = await session.execute(query)
+        receipts = result.scalars().all()
+
+        return [
+            products.ReceiptSummary(
+                id=receipt.id,
+                created_at=receipt.created_at,
+                total=receipt.total,
+                payment=receipt.payment
+            ) for receipt in receipts
+        ]
+
+    except Exception as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
