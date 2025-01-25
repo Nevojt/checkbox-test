@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Optional, List
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Query
 from app.schemas import  products
@@ -8,6 +9,7 @@ from app.models.products import Receipt, Products
 from app.core import crud
 
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 
 router = APIRouter()
@@ -65,7 +67,7 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
        )
 
     except Exception as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     return response
 
 @router.get("/receipts/", response_model=List[products.ReceiptSummary])
@@ -108,3 +110,32 @@ async def get_all_receipts(*, session: SessionDep,
 
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+
+@router.get("/receipts/{receipt_id}/", response_model=products.ReceiptOutput)
+async def get_receipt(receipt_id: UUID, current_user: CurrentUser, session: SessionDep):
+    query = select(Receipt).options(selectinload(Receipt.products)).where(Receipt.id == receipt_id,
+                                  Receipt.user_id == current_user.id)
+    result = await session.execute(query)
+    receipt = result.scalars().first()
+
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    products_list = [
+        products.ProductOutput(
+            name=product.name,
+            price=product.price,
+            quantity=product.quantity,
+            total=product.total
+        ) for product in receipt.products
+    ]
+
+    return products.ReceiptOutput(
+        id=receipt.id,
+        products=products_list,
+        payment=receipt.payment,
+        total=receipt.total,
+        rest=receipt.rest,
+        created_at=receipt.created_at
+    )
