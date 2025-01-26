@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, JSON
+from sqlalchemy import Column, String, Float, ForeignKey, JSON
 from sqlalchemy.sql.expression import text
 from sqlalchemy.orm import relationship
 
@@ -25,6 +25,8 @@ class Receipt(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
     total = Column(Float)
     rest = Column(Float)
-    payment = Column(JSON)
+    payment_type = Column(String)
+    payment_amount = Column(Float)
+    recept_url = Column(String)
     products = relationship("Products", back_populates="receipt")
 

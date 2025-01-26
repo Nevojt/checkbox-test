@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     ALGORITHM: str
     SECRET_KEY: str = secrets.token_urlsafe(32)
 
+    BACKBLAZE_ID: str
+    BACKBLAZE_KEY: str
+    BUCKET_NAME_ITEMS: str
+
 
 
 
