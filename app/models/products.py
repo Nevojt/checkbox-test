@@ -27,5 +27,6 @@ class Receipt(Base):
     rest = Column(Float)
     payment_type = Column(String)
     payment_amount = Column(Float)
+    recept_url = Column(String)
     products = relationship("Products", back_populates="receipt")
 

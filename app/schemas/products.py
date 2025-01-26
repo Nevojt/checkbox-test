@@ -30,9 +30,4 @@ class ReceiptOutput(BaseModel):
     total: float
     rest: float
     created_at: datetime
-
-# class ReceiptSummary(BaseModel):
-#     id: Annotated[UUID4, Strict(False)]
-#     created_at: datetime
-#     total: float
-#     payment: PaymentInput
+    recept_url: str | None
