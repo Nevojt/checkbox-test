@@ -19,12 +19,14 @@ class ProductOutput(BaseModel):
     quantity: float
     total: float
 
+class ReceiptPayment(BaseModel):
+    type: str
+    amount: float
 
 class ReceiptOutput(BaseModel):
     id: Annotated[UUID4, Strict(False)]
     products: List[ProductOutput]
-    payment_type: str
-    payment_amount: float
+    payment: ReceiptPayment
     total: float
     rest: float
     created_at: datetime
