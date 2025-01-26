@@ -10,6 +10,7 @@ from app.core import crud
 
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import cast, String
 
 
 router = APIRouter()
@@ -32,7 +33,7 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
            )
            products_data.append(product_data)
 
-       rest = round(receipt_input.payment.amount - total, 2)
+       rest = round(receipt_input.payment_amount - total, 2)
        if rest < 0:
            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient funds")
 
@@ -40,12 +41,14 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
            user_id=current_user.id,
            total=total,
            rest=rest,
-           payment=receipt_input.payment.model_dump()
+           payment_type=receipt_input.payment_type,
+           payment_amount=receipt_input.payment_amount
        )
        session.add(receipt)
        await session.commit()
        await session.refresh(receipt)
 
+       # Create product entries
        for product_data in products_data:
            product = Products(
                receipt_id=receipt.id,
@@ -57,20 +60,23 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
            session.add(product)
        await session.commit()
 
+       # Prepare response
        response = products.ReceiptOutput(
            id=receipt.id,
            products=products_data,
-           payment=receipt_input.payment,
-           total=receipt.total,
-           rest=receipt.rest,
+           payment_type=receipt.payment_type,
+           payment_amount=receipt.payment_amount,
+           total=total,
+           rest=rest,
            created_at=receipt.created_at
        )
+       # return response
 
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     return response
 
-@router.get("/receipts/", response_model=List[products.ReceiptSummary])
+@router.get("/receipts/", response_model=List[products.ReceiptOutput])
 async def get_all_receipts(*, session: SessionDep,
                            current_user: CurrentUser,
                            offset: int = 0,
@@ -82,14 +88,14 @@ async def get_all_receipts(*, session: SessionDep,
                            end_date: Optional[datetime] = Query(None)
                            ) -> Any:
     try:
-        query = select(Receipt).where(Receipt.user_id == current_user.id)
+        query = select(Receipt).options(selectinload(Receipt.products)).where(Receipt.user_id == current_user.id)
 
         if min_total is not None:
             query = query.where(Receipt.total >= min_total)
         if max_total is not None:
             query = query.where(Receipt.total <= max_total)
         if payment_type is not None:
-            query = query.where(Receipt.payment["type"].astext == payment_type)
+            query = query.where(cast(Receipt.payment["type"], String) == payment_type)
         if start_date is not None:
             query = query.where(Receipt.created_at >= start_date)
         if end_date is not None:
@@ -100,11 +106,20 @@ async def get_all_receipts(*, session: SessionDep,
         receipts = result.scalars().all()
 
         return [
-            products.ReceiptSummary(
+            products.ReceiptOutput(
                 id=receipt.id,
-                created_at=receipt.created_at,
+                products=[
+                    products.ProductOutput(
+                        name=product.name,
+                        price=product.price,
+                        quantity=product.quantity,
+                        total=product.total
+                    ) for product in receipt.products
+                ],
+                payment=receipt.payment,
                 total=receipt.total,
-                payment=receipt.payment
+                rest=receipt.rest,
+                created_at=receipt.created_at
             ) for receipt in receipts
         ]
 

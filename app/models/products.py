@@ -25,6 +25,7 @@ class Receipt(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
     total = Column(Float)
     rest = Column(Float)
-    payment = Column(JSON)
+    payment_type = Column(String)
+    payment_amount = Column(Float)
     products = relationship("Products", back_populates="receipt")
 
