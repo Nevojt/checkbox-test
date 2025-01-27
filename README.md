@@ -61,6 +61,9 @@ BUCKET_NAME_ITEMS=<назва вашого bucket>
 uvicorn app.main:app --reload
 ```
 ### 6. Запуск тестів
+- для успішного проходження треба створити користувача 
+  - "username": "testuser@example.com",
+  - "password": "password123"
 ```bash
 pytest
 ```
@@ -80,6 +83,10 @@ pytest
   - **schemas/**: Схеми для валідації та роботи з API.
   - **api/**: Роутери для ендпоінтів.
   - **core/**: Утиліти та конфігурація додатка.
+  - **tests/**: Всі тести 
+    - (для успішного проходження треба створити користувача 
+    - "username": "testuser@example.com",
+    "password": "password123")
 - **requirements.txt**: Файл з усіма залежностями проєкту.
 - **README.md**: Документація для розгортання та використання.
 
