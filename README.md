@@ -60,7 +60,10 @@ BUCKET_NAME_ITEMS=<назва вашого bucket>
 ```bash
 uvicorn app.main:app --reload
 ```
-
+### 6. Запуск тестів
+```bash
+pytest
+```
 ---
 
 ## Доступ до API
