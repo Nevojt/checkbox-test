@@ -1,13 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from app.schemas import  users
 from app.api.deps import SessionDep, CurrentUser
 from app.core import crud
 
 router = APIRouter()
 
-@router.post("/create-user", response_model=users.UserPublic)
+@router.post("/create-user", response_model=users.UserPublic, status_code=status.HTTP_201_CREATED)
 async def create_user(*, session: SessionDep, user_in: users.UserCreate) -> Any:
     user = await crud.get_user_by_email(session=session, email=user_in.email)
     if user:

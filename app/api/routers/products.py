@@ -4,6 +4,8 @@ from typing import Any, Optional, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.schemas import  products
 from app.api.deps import SessionDep, CurrentUser
 from app.models.products import Receipt, Products
@@ -80,7 +82,7 @@ async def create_receipt(*, session: SessionDep, current_user: CurrentUser,
            session.add(product)
        await session.commit()
 
-       recept_url = await get_receipt_text(session=session, receipt_id=receipt.id, line_width=32)
+       recept_url = await get_receipt_text_url(session=session, receipt_id=receipt.id, line_width=32)
        # Prepare response
        response = products.ReceiptOutput(
            id=receipt.id,
@@ -223,10 +225,10 @@ async def get_receipt(receipt_id: UUID, current_user: CurrentUser, session: Sess
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err))
 
-@router.get("/receipts/{receipt_id}/text")
-async def get_receipt_text(receipt_id: UUID, session: SessionDep):
+@router.get("/receipts/{receipt_id}/file-url")
+async def get_receipt_file_url(receipt_id: UUID, session: SessionDep):
     """
-    GET /receipts/{receipt_id}/text
+    GET /receipts/{receipt_id}/file-url
     Опис: Повертає URL, який веде на текстову версію чека.
     Вхідні параметри:
     - `receipt_id` (UUID): Унікальний ідентифікатор чека.
@@ -247,31 +249,8 @@ async def get_receipt_text(receipt_id: UUID, session: SessionDep):
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err))
 
-
-def check_params(params):
-    return len(f"{int(params):.2f}") + 1
-
-def split_long_words(text, line_width):
-    words = text.split()
-    lines = []
-    current_line = ""
-    for word in words:
-        if len(current_line) + len(word) + 1 <= line_width:
-            current_line += (" " if current_line else "") + word
-        else:
-            lines.append(current_line)
-            current_line = word
-    if current_line:
-        lines.append(current_line)
-    return lines
-
-async def save_receipt_to_file(lines, filename):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "w", encoding="utf-8") as file:
-        file.write("\n".join(lines))
-
-# @router.get("/receipts/{receipt_id}/text")
-async def get_receipt_text(*, session: SessionDep, receipt_id: UUID, line_width: int = 32):
+@router.get("/receipts/{receipt_id}/text")
+async def get_receipt_text_version(*, session: SessionDep, receipt_id: UUID, line_width: int = 32):
     """
     GET / receipts / {receipt_id} / text
     Опис: Генерує текстову версію чека в стилі касового чека.
@@ -279,7 +258,12 @@ async def get_receipt_text(*, session: SessionDep, receipt_id: UUID, line_width:
     - `receipt_id` (UUID): Унікальний ідентифікатор чека.
     - `line_width` (int, опціонально): Ширина рядка тексту (за замовчуванням 32 символи).
     Вихідні дані:
-    - URL (str): Посилання на текстовий файл з чеком"""
+    - Tекстовий файл з чеком"""
+    lines, _ = await create_receipt_text(session=session, receipt_id=receipt_id, line_width=line_width)
+    return lines
+
+
+async def create_receipt_text(*, session: AsyncSession, receipt_id: UUID, line_width: int):
     try:
         query = select(Receipt).options(selectinload(Receipt.products)).where(Receipt.id == receipt_id)
         result = await session.execute(query)
@@ -320,6 +304,36 @@ async def get_receipt_text(*, session: SessionDep, receipt_id: UUID, line_width:
         lines.append("=" * line_width)
         lines.append(receipt.created_at.strftime("%d.%m.%Y %H:%M").center(line_width, ' '))
         lines.append("Дякуємо за покупку!".center(line_width, ' '))
+
+        return lines, receipt
+    except Exception as err:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err))
+
+def check_params(params):
+    return len(f"{int(params):.2f}") + 1
+
+def split_long_words(text, line_width):
+    words = text.split()
+    lines = []
+    current_line = ""
+    for word in words:
+        if len(current_line) + len(word) + 1 <= line_width:
+            current_line += (" " if current_line else "") + word
+        else:
+            lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    return lines
+
+async def save_receipt_to_file(lines, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write("\n".join(lines))
+
+async def get_receipt_text_url(*, session: SessionDep, receipt_id: UUID, line_width: int = 32):
+    try:
+        lines, receipt = await create_receipt_text(session=session, receipt_id=receipt_id, line_width=line_width)
         if receipt.recept_url is None:
             await save_receipt_to_file(lines, "app/checks/" + str(receipt_id))
             check = await upload_to_backblaze("app/checks/" + str(receipt_id), str(receipt_id))
